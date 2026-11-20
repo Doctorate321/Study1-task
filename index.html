@@ -238,13 +238,142 @@ const scaleTrials = ordered.map(function (item) {
   };
 });
 
+// ---- Part 5: ten purchase rounds (delegate or choose yourself) ----
+// STARTING VALUES from Appendix A. Replace after the calibration pretest.
+const P_AGENT  = 0.90;   // chance the agent carries out its own target pick
+const K_TOP    = 3;      // misaligned agent: highest-commission item among the top K by value
+const N_ITEMS  = 8;      // products per round
+const N_ROUNDS = 10;
+const VIEW_MS  = 10000;  // milliseconds locked before choosing yourself
+
+const brands = ['Aurel','Brixa','Calden','Dovan','Elmar','Fenix','Garo','Helio','Ivor','Jarel','Kovin','Lumo','Marek','Norin','Orvia','Pelto','Quill','Ravon','Sorel','Tavin','Ulmar','Vexa','Wendo','Xaro'];
+
+function randInt(a, b) { return a + Math.floor(Math.random() * (b - a + 1)); }
+
+function makeRound(r) {
+  const names = jsPsych.randomization.sampleWithoutReplacement(brands, N_ITEMS);
+  const items = names.map(function (n) {
+    const sound = randInt(4, 9), battery = randInt(4, 9);
+    let price = Math.round((30 + 7 * (sound + battery) + randInt(-25, 25)) / 5) * 5;
+    if (price < 30) { price = 30; }
+    const value = ((sound + battery) / 2) / price * 100;
+    return { name: n + ' Headphones', sound: sound, battery: battery, price: price,
+             value: value, commission: 0.12 * price };
+  });
+  const vals = items.map(function (i) { return i.value; });
+  const best = Math.max.apply(null, vals), worst = Math.min.apply(null, vals);
+  items.forEach(function (i) { i.W = (best === worst) ? 1 : (i.value - worst) / (best - worst); });
+
+  // The agent's target item
+  const order = items.map(function (_, idx) { return idx; })
+                     .sort(function (a, b) { return items[b].value - items[a].value; });
+  let target = order[0];
+  if (condition === 'misaligned') {
+    const top = order.slice(0, K_TOP);
+    target = top.reduce(function (bi, idx) {
+      return items[idx].commission > items[bi].commission ? idx : bi;
+    }, top[0]);
+  }
+  // The agent carries out its target with probability P_AGENT, otherwise picks another item at random
+  let agentPick = target;
+  if (Math.random() > P_AGENT) {
+    const others = items.map(function (_, idx) { return idx; })
+                        .filter(function (idx) { return idx !== target; });
+    agentPick = others[Math.floor(Math.random() * others.length)];
+  }
+  return { round: r, items: items, agentPick: agentPick, delegated: null };
+}
+
+const rounds = [];
+for (let r = 1; r <= N_ROUNDS; r++) { rounds.push(makeRound(r)); }
+const roundResults = [];
+
+const roundsIntro = {
+  type: jsPsychHtmlButtonResponse,
+  stimulus: '<h3>Ten shopping rounds</h3>' +
+    '<p>In each round, you want the <b>best-value headphones</b>: high sound and battery scores for a low price.</p>' +
+    '<p>For each round you decide: let ShopMate pick for you, or choose yourself. Choosing yourself means you look at all ' +
+    N_ITEMS + ' products, and you can choose only after ' + (VIEW_MS / 1000) + ' seconds.</p>' +
+    '<p>At the end you will see how well the headphones chosen for you scored.</p>',
+  choices: ['Start'],
+  data: { screen: 'rounds_intro' }
+};
+
+const roundTrials = [];
+rounds.forEach(function (rd) {
+  const decide = {
+    type: jsPsychHtmlButtonResponse,
+    stimulus: '<h3>Round ' + rd.round + ' of ' + N_ROUNDS + '</h3><p>Who should pick the headphones this round?</p>',
+    choices: ['Let ShopMate pick', 'I will choose myself'],
+    data: { screen: 'round_decision', round: rd.round,
+            items_json: JSON.stringify(rd.items), agent_pick: rd.agentPick },
+    on_finish: function (data) {
+      rd.delegated = (data.response === 0);
+      data.delegate = rd.delegated;
+      if (rd.delegated) {
+        const W = rd.items[rd.agentPick].W;
+        data.W = W;
+        data.chosen_by = 'agent';
+        roundResults.push({ round: rd.round, delegate: true, W: W });
+      }
+    }
+  };
+  const choose = {
+    timeline: [{
+      type: jsPsychHtmlButtonResponse,
+      stimulus: '<h3>Round ' + rd.round + ' of ' + N_ROUNDS + '</h3>' +
+                '<p>Choose the best-value headphones. The buttons unlock after ' + (VIEW_MS / 1000) + ' seconds.</p>',
+      choices: rd.items.map(function (i) {
+        return '<b>' + i.name + '</b><br>Sound: ' + i.sound + '/10<br>Battery: ' + i.battery + '/10<br>Price: $' + i.price;
+      }),
+      enable_button_after: VIEW_MS,
+      button_layout: 'grid',
+      grid_columns: 2,
+      data: { screen: 'round_self_choice', round: rd.round },
+      on_finish: function (data) {
+        const W = rd.items[data.response].W;
+        data.W = W;
+        data.chosen_by = 'self';
+        roundResults.push({ round: rd.round, delegate: false, W: W });
+      }
+    }],
+    conditional_function: function () { return rd.delegated === false; }
+  };
+  roundTrials.push(decide, choose);
+});
+
+// Feedback: average score, delegation count, and one randomly drawn round
+const feedback = {
+  type: jsPsychHtmlButtonResponse,
+  stimulus: function () {
+    const avg = roundResults.reduce(function (s, x) { return s + x.W; }, 0) / roundResults.length;
+    const nDel = roundResults.filter(function (x) { return x.delegate; }).length;
+    const pick = roundResults[Math.floor(Math.random() * roundResults.length)];
+    jsPsych.data.addProperties({
+      avg_welfare: Math.round(avg * 1000) / 1000,
+      delegation_count: nDel,
+      consequence_round: pick.round,
+      consequence_W: Math.round(pick.W * 1000) / 1000
+    });
+    return '<h3>Your results</h3>' +
+      '<p>You let ShopMate pick in <b>' + nDel + '</b> of ' + N_ROUNDS + ' rounds.</p>' +
+      '<p>Average score of the headphones chosen for you: <b>' + Math.round(avg * 100) + '</b> out of 100.</p>' +
+      '<p>In randomly selected round ' + pick.round + ', the headphones chosen for you scored <b>' +
+      Math.round(pick.W * 100) + '</b> out of 100.</p>';
+  },
+  choices: ['Continue'],
+  data: { screen: 'feedback' }
+};
+
 // ---- Run everything in order ----
 jsPsych.run(
   [consent, profileCard, check, ladderIntro]
     .concat(ladderTrials)
     .concat([scaleIntro])
     .concat(scaleTrials)
-    .concat([endScreen])
+    .concat([roundsIntro])
+    .concat(roundTrials)
+    .concat([feedback, endScreen])
 );
 </script>
 </html>
