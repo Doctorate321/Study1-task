@@ -179,7 +179,72 @@ const shuffledFacets = jsPsych.randomization.shuffle(ladderFacets);
 jsPsych.data.addProperties({ ladder_order: shuffledFacets.map(f => f.key).join(' > ') });
 const ladderTrials = shuffledFacets.map(makeLadder).flat();
 
+// ---- Part 4: survey scales (adapted from published sources) ----
+const AGREE  = ['Strongly disagree', '2', '3', '4', '5', '6', 'Strongly agree'];
+const EXTENT = ['Not at all', '2', '3', '4', '5', '6', 'Extremely'];
+
+const scaleIntro = {
+  type: jsPsychHtmlButtonResponse,
+  stimulus: '<h3>A few statements about ShopMate</h3>' +
+    '<p>For each statement, choose the number that fits best. The labels under each statement show what 1 and 7 mean.</p>',
+  choices: ['Continue'],
+  data: { screen: 'scale_intro' }
+};
+
+const scaleItems = [
+  // Trust: S-TIAS (McGrath et al., 2025; from Jian et al., 2000, items 6, 10, 11)
+  { scale: 'trust', id: 'tru1', anchors: EXTENT, text: 'I am confident in ShopMate.' },
+  { scale: 'trust', id: 'tru2', anchors: EXTENT, text: 'ShopMate is reliable.' },
+  { scale: 'trust', id: 'tru3', anchors: EXTENT, text: 'I can trust ShopMate.' },
+
+  // Intention: adapted from the BI items in McGrath et al. (2025)
+  { scale: 'intention', id: 'int1', anchors: AGREE, text: 'I expect that I would let ShopMate choose and buy products for me.' },
+  { scale: 'intention', id: 'int2', anchors: AGREE, text: 'I would let ShopMate choose and buy products for me.' },
+  { scale: 'intention', id: 'int3', anchors: AGREE, text: 'I would like to let ShopMate choose and buy products for me when I shop.' },
+
+  // Perceived control: adapted from the Perceived Content Control items in Wang, Li & Zhang (2026)
+  { scale: 'control', id: 'con1', anchors: AGREE, text: 'If I used ShopMate, I could guide the direction of what it buys for me.' },
+  { scale: 'control', id: 'con2', anchors: AGREE, text: 'If I used ShopMate, I could adjust what it buys to better match my intentions.' },
+  { scale: 'control', id: 'con3', anchors: AGREE, text: 'If I used ShopMate, I could change what it buys by refining or redirecting my instructions.' }
+];
+
+const attentionItem = {
+  scale: 'attention', id: 'att1', anchors: AGREE,
+  text: 'To show you are reading carefully, please choose 7 for this statement.'
+};
+
+// Keep each scale together; randomize scale order and item order; attention check after the first scale
+const blockOrder = jsPsych.randomization.shuffle(['trust', 'intention', 'control']);
+let ordered = [];
+blockOrder.forEach(function (b) {
+  ordered = ordered.concat(jsPsych.randomization.shuffle(scaleItems.filter(i => i.scale === b)));
+});
+const firstBlockSize = scaleItems.filter(i => i.scale === blockOrder[0]).length;
+ordered.splice(firstBlockSize, 0, attentionItem);
+jsPsych.data.addProperties({ scale_block_order: blockOrder.join(' > ') });
+
+const scaleTrials = ordered.map(function (item) {
+  return {
+    type: jsPsychHtmlButtonResponse,
+    stimulus: '<p>Think about ShopMate, the assistant you read about.</p>' +
+              '<p><b>' + item.text + '</b></p>' +
+              '<p><small>1 = ' + item.anchors[0] + ' &nbsp;&nbsp;&nbsp; 7 = ' + item.anchors[6] + '</small></p>',
+    choices: ['1', '2', '3', '4', '5', '6', '7'],
+    data: { screen: 'scale_item', scale: item.scale, item_id: item.id },
+    on_finish: function (data) {
+      data.rating = data.response + 1;
+      if (item.scale === 'attention') { data.attention_pass = (data.rating === 7); }
+    }
+  };
+});
+
 // ---- Run everything in order ----
-jsPsych.run([consent, profileCard, check, ladderIntro].concat(ladderTrials).concat([endScreen]));
+jsPsych.run(
+  [consent, profileCard, check, ladderIntro]
+    .concat(ladderTrials)
+    .concat([scaleIntro])
+    .concat(scaleTrials)
+    .concat([endScreen])
+);
 </script>
 </html>
