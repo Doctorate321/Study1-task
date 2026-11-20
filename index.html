@@ -86,6 +86,100 @@ const endScreen = {
   data: { screen: 'end' }
 };
 
-jsPsych.run([consent, profileCard, check, endScreen]);
+// ---- Part 3: the three delegation ladders ----
+const ladderIntro = {
+  type: jsPsychHtmlButtonResponse,
+  stimulus: '<h3>How much freedom would you give ShopMate?</h3>' +
+    '<p>Next you will see three short questions. For each one, choose the <b>highest</b> level of freedom you would be comfortable giving the assistant.</p>' +
+    '<p>There are no right or wrong answers.</p>',
+  choices: ['Continue'],
+  data: { screen: 'ladder_intro' }
+};
+
+const ladderFacets = [
+  {
+    key: 'discretion',
+    title: 'Choice freedom',
+    question: 'How much freedom should the assistant have when choosing products for you?',
+    rungs: [
+      'It may only recommend products. I make every choice myself.',
+      'It may pick from a shortlist that I make.',
+      'It may pick any product that fits my stated needs.',
+      'It may also swap in similar products if my first choice is unavailable.',
+      'It may choose whatever it judges best, with full freedom.'
+    ]
+  },
+  {
+    key: 'spending',
+    title: 'Spending limit',
+    question: 'PLACEHOLDER: the typical price in this shop is [amount]. How much may the assistant spend on one purchase?',
+    rungs: [
+      'Up to 25% of the typical price.',
+      'Up to 50% of the typical price.',
+      'Up to 75% of the typical price.',
+      'Up to 100% of the typical price.',
+      'Up to 125% of the typical price.'
+    ]
+  },
+  {
+    key: 'review',
+    title: 'Checking purchases',
+    question: 'When should you get to check what the assistant buys?',
+    rungs: [
+      'I approve every purchase before it happens.',
+      'I approve only purchases above a set price.',
+      'The assistant buys, and I am told right after each purchase.',
+      'The assistant buys, and I get one summary at the end.',
+      'The assistant buys, and I do not check anything.'
+    ]
+  }
+];
+
+// Builds one ladder question plus an optional "just checking" question
+function makeLadder(f) {
+  const n = f.rungs.length;
+  const ladder = {
+    type: jsPsychHtmlButtonResponse,
+    stimulus: '<h3>' + f.title + '</h3><p>' + f.question + '</p>' +
+              '<p><i>Choose the highest level you would accept.</i></p>',
+    choices: f.rungs.concat(['None of these. I would not accept any of them.']),
+    button_layout: 'grid',
+    grid_columns: 1,
+    data: { screen: 'ladder', facet: f.key },
+    on_finish: function (data) {
+      // Score 1 to 5 for the five levels, 0 for "none of these"
+      data.rung_score = (data.response < n) ? data.response + 1 : 0;
+    }
+  };
+  const followUp = {
+    timeline: [{
+      type: jsPsychHtmlButtonResponse,
+      stimulus: function () {
+        const last = jsPsych.data.get().last(1).values()[0];
+        return '<p>Just checking. Would you <b>also</b> accept this next level?</p>' +
+               '<p><b>' + f.rungs[last.rung_score] + '</b></p>';
+      },
+      choices: ['Yes', 'No'],
+      data: { screen: 'ladder_check', facet: f.key },
+      on_finish: function (data) {
+        // Saying "Yes" here means the earlier answer was not the highest accepted level
+        data.inconsistent = (data.response === 0);
+      }
+    }],
+    conditional_function: function () {
+      const last = jsPsych.data.get().last(1).values()[0];
+      return last.rung_score >= 1 && last.rung_score < n;
+    }
+  };
+  return [ladder, followUp];
+}
+
+// Show the three ladders in a random order and record that order
+const shuffledFacets = jsPsych.randomization.shuffle(ladderFacets);
+jsPsych.data.addProperties({ ladder_order: shuffledFacets.map(f => f.key).join(' > ') });
+const ladderTrials = shuffledFacets.map(makeLadder).flat();
+
+// ---- Run everything in order ----
+jsPsych.run([consent, profileCard, check, ladderIntro].concat(ladderTrials).concat([endScreen]));
 </script>
 </html>
