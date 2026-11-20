@@ -1,19 +1,91 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <title>Test</title>
-    <script src="https://unpkg.com/jspsych@7.3.4"></script>
-    <script src="https://unpkg.com/@jspsych/plugin-html-keyboard-response@1.1.3"></script>
-    <link rel="stylesheet" href="https://unpkg.com/jspsych@7.3.4/css/jspsych.css">
-  </head>
-  <body></body>
-  <script>
-    const jsPsych = initJsPsych();
-    const timeline = [];
-    timeline.push({
-      type: jsPsychHtmlKeyboardResponse,
-      stimulus: 'Hello! jsPsych is working. Press any key.'
-    });
-    jsPsych.run(timeline);
-  </script>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shopping Assistant Study</title>
+<script src="https://unpkg.com/jspsych@7.3.4"></script>
+<script src="https://unpkg.com/@jspsych/plugin-html-button-response@1.2.0"></script>
+<link rel="stylesheet" href="https://unpkg.com/jspsych@7.3.4/css/jspsych.css">
+<style>
+  body { font-family: Arial, sans-serif; }
+  .card { border: 2px solid #444; border-radius: 8px; padding: 16px;
+          max-width: 520px; margin: auto; text-align: left; background: #f7f7f7; }
+</style>
+</head>
+<body></body>
+<script>
+// ---- Start the experiment and show the saved data at the end ----
+const jsPsych = initJsPsych({
+  on_finish: function () { jsPsych.data.displayData(); }
+});
+
+// ---- Randomly choose which assistant this person sees ----
+const condition = jsPsych.randomization.sampleWithoutReplacement(['aligned', 'misaligned'], 1)[0];
+jsPsych.data.addProperties({
+  condition: condition,
+  participant_id: jsPsych.randomization.randomID(8)
+});
+
+// ---- The two profile cards (placeholder wording and numbers) ----
+const cardAligned =
+  '<div class="card"><h3>Your shopping assistant: ShopMate</h3><ul>' +
+  '<li>Carries out its selections correctly about 90% of the time.</li>' +
+  '<li>Earns <b>no commission</b> from any product it picks.</li>' +
+  '</ul></div>';
+
+const cardMisaligned =
+  '<div class="card"><h3>Your shopping assistant: ShopMate</h3><ul>' +
+  '<li>Carries out its selections correctly about 90% of the time.</li>' +
+  '<li>Earns a <b>commission from sellers</b> and tends to favor products that pay it more.</li>' +
+  '</ul></div>';
+
+const cardToShow = (condition === 'aligned') ? cardAligned : cardMisaligned;
+
+// ---- Screen 1: welcome and consent ----
+const consent = {
+  type: jsPsychHtmlButtonResponse,
+  stimulus: '<h2>Welcome</h2>' +
+    '<p>PLACEHOLDER: paste your ethics-approved information and consent text here.</p>' +
+    '<p>Taking part is voluntary. You may stop at any time.</p>',
+  choices: ['I agree to take part', 'I do not agree'],
+  data: { screen: 'consent' },
+  on_finish: function (data) {
+    if (data.response === 1) {
+      jsPsych.endExperiment('Thank you. You chose not to take part. You may close this page.');
+    }
+  }
+};
+
+// ---- Screen 2: the assistant's profile card ----
+const profileCard = {
+  type: jsPsychHtmlButtonResponse,
+  stimulus: '<p>Please read about the shopping assistant you may use.</p>' + cardToShow,
+  choices: ['Continue'],
+  enable_button_after: 5000,
+  data: { screen: 'profile_card' }
+};
+
+// ---- Screen 3: understanding check ----
+const check = {
+  type: jsPsychHtmlButtonResponse,
+  stimulus: '<p>Think about the assistant you just read about.</p>' +
+            '<p><b>Does this assistant earn a commission from the products it picks?</b></p>',
+  choices: ['Yes', 'No'],
+  data: { screen: 'comprehension_check' },
+  on_finish: function (data) {
+    data.correct = (condition === 'misaligned') ? (data.response === 0) : (data.response === 1);
+  }
+};
+
+// ---- Screen 4: end of this part ----
+const endScreen = {
+  type: jsPsychHtmlButtonResponse,
+  stimulus: '<p>That is the end of this test. Click Finish to see the saved data.</p>',
+  choices: ['Finish'],
+  data: { screen: 'end' }
+};
+
+jsPsych.run([consent, profileCard, check, endScreen]);
+</script>
 </html>
