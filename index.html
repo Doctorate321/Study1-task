@@ -138,6 +138,8 @@ const ladderFacets = [
 // Builds one ladder question plus an optional "just checking" question
 function makeLadder(f) {
   const n = f.rungs.length;
+  let score = 0;   // remembers this ladder's answer (0 = none, 1 to 5 = level)
+
   const ladder = {
     type: jsPsychHtmlButtonResponse,
     stimulus: '<h3>' + f.title + '</h3><p>' + f.question + '</p>' +
@@ -147,28 +149,26 @@ function makeLadder(f) {
     grid_columns: 1,
     data: { screen: 'ladder', facet: f.key },
     on_finish: function (data) {
-      // Score 1 to 5 for the five levels, 0 for "none of these"
-      data.rung_score = (data.response < n) ? data.response + 1 : 0;
+      score = (data.response < n) ? data.response + 1 : 0;
+      data.rung_score = score;
     }
   };
+
   const followUp = {
     timeline: [{
       type: jsPsychHtmlButtonResponse,
       stimulus: function () {
-        const last = jsPsych.data.get().last(1).values()[0];
         return '<p>Just checking. Would you <b>also</b> accept this next level?</p>' +
-               '<p><b>' + f.rungs[last.rung_score] + '</b></p>';
+               '<p><b>' + f.rungs[score] + '</b></p>';
       },
       choices: ['Yes', 'No'],
       data: { screen: 'ladder_check', facet: f.key },
       on_finish: function (data) {
-        // Saying "Yes" here means the earlier answer was not the highest accepted level
         data.inconsistent = (data.response === 0);
       }
     }],
     conditional_function: function () {
-      const last = jsPsych.data.get().last(1).values()[0];
-      return last.rung_score >= 1 && last.rung_score < n;
+      return score >= 1 && score < n;
     }
   };
   return [ladder, followUp];
