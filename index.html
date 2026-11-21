@@ -1,25 +1,32 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Shopping Assistant Study</title>
+<title>Decision-Making with Automated Shopping Assistants</title>
+
+<!-- Tool files. Keep these version numbers fixed during data collection. -->
 <script src="https://unpkg.com/jspsych@7.3.4"></script>
 <script src="https://unpkg.com/@jspsych/plugin-html-button-response@1.2.0"></script>
-  <script src="https://unpkg.com/@jspsych/plugin-survey-text@1"></script>
+<script src="https://unpkg.com/@jspsych/plugin-survey-text@1"></script>
 <link rel="stylesheet" href="https://unpkg.com/jspsych@7.3.4/css/jspsych.css">
+
 <style>
-  body { font-family: Arial, sans-serif; }
-  .card { border: 2px solid #444; border-radius: 8px; padding: 16px;
-          max-width: 520px; margin: auto; text-align: left; background: #f7f7f7; }
+  body { font-family: Arial, Helvetica, sans-serif; line-height: 1.5; color: #1c1c1c; }
+  .card { border: 2px solid #444; border-radius: 8px; padding: 16px; max-width: 520px;
+          margin: auto; text-align: left; background: #f7f7f7; }
+  button:focus-visible { outline: 3px solid #1a5fb4; outline-offset: 2px; }
 </style>
 </head>
 <body></body>
+
 <script>
-// ---- Cloud saving settings ----
-const SAVE_URL = 'https://script.google.com/macros/s/AKfycbypVmcQ6zoZL_msQAXij-ZZJg_Pl63yASrSJEVa8sY8pD_j7aKPTNc-VXdFlP6Bm83moQ/exec';
-const SECRET = 'blue-kettle-186';
-const IS_TEST = new URLSearchParams(window.location.search).has('test');
+// =====================================================================
+// SETTINGS YOU MUST EDIT (copy both values from your Google Apps Script setup)
+// =====================================================================
+const SAVE_URL = 'https://script.google.com/macros/s/AKfycbypVmcQ6zoZL_msQAXij-ZZJg_Pl63yASrSJEVa8sY8pD_j7aKPTNc-VXdFlP6Bm83moQ/exec'; 
+const SECRET   = 'blue-kettle-186';   
+const IS_TEST  = new URLSearchParams(window.location.search).has('test');
 
 // Do not change this list after real data collection starts
 const COLUMNS = ['participant_id','test','condition','withdrawn','trial_index','screen','facet','scale','item_id',
@@ -27,6 +34,9 @@ const COLUMNS = ['participant_id','test','condition','withdrawn','trial_index','
   'chosen_by','agent_pick','mc_correct','answer','rt','time_elapsed','ladder_order','scale_block_order',
   'avg_welfare','delegation_count','consequence_round','consequence_W','items_json'];
 
+// =====================================================================
+// SAVING THE DATA
+// =====================================================================
 function buildRows() {
   const all = jsPsych.data.get().values();
   const w = (all[all.length - 1].withdrawn === true);
@@ -69,7 +79,7 @@ async function finishUp() {
   const last = all[all.length - 1];
   const pid = all[0].participant_id;
   const box = function (html) {
-    document.body.innerHTML = '<div style="max-width:600px;margin:60px auto;font-family:Arial,sans-serif;line-height:1.5">' + html + '</div>';
+    document.body.innerHTML = '<div style="max-width:600px;margin:60px auto;padding:0 16px;font-family:Arial,sans-serif;line-height:1.5">' + html + '</div>';
   };
   if (last.screen !== 'end') {   // did not finish, for example did not consent
     box('<p>Thank you. You may close this page.</p>');
@@ -83,7 +93,7 @@ async function finishUp() {
     box('<p>Thank you. Your answers were saved. You may close this page.</p>');
   } else {
     box('<p>Sorry, we could not save your answers automatically.</p>' +
-        '<p>Please click the button below to download a file, and email it to PLACEHOLDER: researcher email address.</p>' +
+        '<p>Please click the button below to download a file, and email it to [sibtain186@gmail.com].</p>' +
         '<p><button id="dl">Download my answers</button></p>');
     document.getElementById('dl').onclick = function () {
       const blob = new Blob([JSON.stringify(rows)], { type: 'application/json' });
@@ -95,18 +105,22 @@ async function finishUp() {
   }
 }
 
+// =====================================================================
+// START THE EXPERIMENT AND ASSIGN THE CONDITION AT RANDOM
+// =====================================================================
 const jsPsych = initJsPsych({
   on_finish: function () { finishUp(); }
 });
 
-// ---- Randomly choose which assistant this person sees ----
 const condition = jsPsych.randomization.sampleWithoutReplacement(['aligned', 'misaligned'], 1)[0];
 jsPsych.data.addProperties({
   condition: condition,
   participant_id: jsPsych.randomization.randomID(8)
 });
 
-// ---- The two profile cards (placeholder wording and numbers) ----
+// =====================================================================
+// SCREENS 1 TO 3: CONSENT, ASSISTANT CARD, UNDERSTANDING CHECK
+// =====================================================================
 const cardAligned =
   '<div class="card"><h3>Your shopping assistant: ShopMate</h3><ul>' +
   '<li>Carries out its selections correctly about 90% of the time.</li>' +
@@ -128,17 +142,17 @@ const consent = {
   <h2>Participant Information &amp; Informed Consent</h2>
 
   <p><strong>Study title:</strong> Decision-Making with Automated Shopping Assistants</p>
-  <p><strong>Principal investigator:</strong> [Your name, department, institution]</p>
+  <p><strong>Principal investigator:</strong> [Dr. Syed Sibtain Ali Shah Kazmi, Department of Management Sciences, Abbottabad University of Science & Technology, Pakistan]</p>
 
   <p><strong>Purpose and procedure:</strong> You are invited to take part in a single-session academic study on how people decide how much an automated shopping assistant may do for them. You will read a brief description of a digital shopping assistant, answer a set of questions, and complete a simulated product-selection task using made-up products. The session takes approximately [20 to 25] minutes. Some details about the study are withheld until the end, because explaining them now could change your responses. You will receive a full explanation on the final screen.</p>
 
   <p><strong>Voluntary participation and academic credit:</strong> Your participation is completely voluntary. You may stop at any time by closing your browser, without penalty. Nothing is saved unless you reach the end of the task. If you are participating for course credit, credit is granted independently of your task decisions or performance, and non-participation carries no academic penalty.</p>
 
-  <p><strong>Risks, benefits and stakes:</strong> This study involves minimal risk. The shopping tasks are simulated and involve no real purchases or personal financial loss. You will see a score for your choices; it is part of a made-up task and says nothing about your ability. [Optional, only if approved: One randomly selected round will determine your entry into a prize draw / bonus credit allocation.]</p>
+  <p><strong>Risks, benefits and stakes:</strong> This study involves minimal risk. The shopping tasks are simulated and involve no real purchases or personal financial loss. You will see a score for your choices; it is part of a made-up task and says nothing about your ability. </p>
 
   <p><strong>Confidentiality and data protection:</strong> We do not ask for your name, email address, or phone number. Your responses are recorded under a random participant code and stored in a password-protected online spreadsheet (Google Sheets) that only the research team can open. The servers may be located outside Pakistan, and the companies hosting this page and the spreadsheet may keep technical logs under their own policies; the research team does not receive them. No personally identifying information will appear in any publication or shared dataset.</p>
 
-  <p><strong>Debriefing, withdrawal and contact:</strong> Full details about the study will be given on the final screen, where you can also choose to have your data deleted. Afterwards, you may email us with your participant code until [date] to have your data removed. For questions about this research, contact [investigator email]. For questions about your rights as a participant, contact [ethics committee name and email]. Approval number: [number].</p>
+  <p><strong>Debriefing, withdrawal and contact:</strong> Full details about the study will be given on the final screen, where you can also choose to have your data deleted. Afterwards, you may email us with your participant code until [December 20, 2026] to have your data removed. For questions about this research, contact [sibtain186@gmail.com]. </p>
 
   <p><em>By clicking “I am 18 or older and I agree to take part” below, you confirm that you are 18 years of age or older, have read and understood this information, and voluntarily consent to participate.</em></p>
   </div>`,
@@ -172,15 +186,9 @@ const check = {
   }
 };
 
-// ---- Screen 4: end of this part ----
-const endScreen = {
-  type: jsPsychHtmlButtonResponse,
-  stimulus: '<p>That is the end of this test. Click Finish to see the saved data.</p>',
-  choices: ['Finish'],
-  data: { screen: 'end' }
-};
-
-// ---- Part 3: the three delegation ladders ----
+// =====================================================================
+// PART 3: THE THREE DELEGATION LADDERS
+// =====================================================================
 const ladderIntro = {
   type: jsPsychHtmlButtonResponse,
   stimulus: '<h3>How much freedom would you give ShopMate?</h3>' +
@@ -206,13 +214,14 @@ const ladderFacets = [
   {
     key: 'spending',
     title: 'Spending limit',
-    question: 'PLACEHOLDER: the typical price in this shop is [amount]. How much may the assistant spend on one purchase?',
+    question: 'In this shop, a typical pair of headphones costs about Rs 6,000. How much may the assistant spend on one purchase?',
     rungs: [
-           'Up to Rs 1,500 on one purchase.',
+      'Up to Rs 1,500 on one purchase.',
       'Up to Rs 3,000 on one purchase.',
       'Up to Rs 4,500 on one purchase.',
       'Up to Rs 6,000 on one purchase.',
-      'Up to Rs 7,500 on one purchase.'    ]
+      'Up to Rs 7,500 on one purchase.'
+    ]
   },
   {
     key: 'review',
@@ -272,7 +281,9 @@ const shuffledFacets = jsPsych.randomization.shuffle(ladderFacets);
 jsPsych.data.addProperties({ ladder_order: shuffledFacets.map(f => f.key).join(' > ') });
 const ladderTrials = shuffledFacets.map(makeLadder).flat();
 
-// ---- Part 4: survey scales (adapted from published sources) ----
+// =====================================================================
+// PART 4: SURVEY SCALES (adapted from published sources) AND ATTENTION CHECK
+// =====================================================================
 const AGREE  = ['Strongly disagree', '2', '3', '4', '5', '6', 'Strongly agree'];
 const EXTENT = ['Not at all', '2', '3', '4', '5', '6', 'Extremely'];
 
@@ -331,14 +342,16 @@ const scaleTrials = ordered.map(function (item) {
   };
 });
 
-// ---- Part 5: ten purchase rounds (delegate or choose yourself) ----
-// STARTING VALUES from Appendix A. Replace after the calibration pretest.
-const P_AGENT  = 0.90;   // chance the agent carries out its own target pick
-const K_TOP    = 3;      // misaligned agent: highest-commission item among the top K by value
-const N_ITEMS  = 8;      // products per round
-const N_ROUNDS = 10;
-const VIEW_MS  = 10000;  // milliseconds locked before choosing yourself
-  const PRICE_SCALE = 50;  // turns the base price units into rupees
+// =====================================================================
+// PART 5: TEN PURCHASE ROUNDS (let ShopMate pick, or choose yourself)
+// =====================================================================
+// STARTING VALUES. They will be replaced after the calibration pretest.
+const P_AGENT     = 0.90;   // chance the agent carries out its own target pick
+const K_TOP       = 3;      // misaligned agent: highest-commission item among the top K by value
+const N_ITEMS     = 8;      // products per round
+const N_ROUNDS    = 10;
+const VIEW_MS     = 10000;  // milliseconds locked before choosing yourself
+const PRICE_SCALE = 50;     // turns the base price units into rupees (check against local prices)
 
 const brands = ['Aurel','Brixa','Calden','Dovan','Elmar','Fenix','Garo','Helio','Ivor','Jarel','Kovin','Lumo','Marek','Norin','Orvia','Pelto','Quill','Ravon','Sorel','Tavin','Ulmar','Vexa','Wendo','Xaro'];
 
@@ -350,7 +363,7 @@ function makeRound(r) {
     const sound = randInt(4, 9), battery = randInt(4, 9);
     let price = Math.round((30 + 7 * (sound + battery) + randInt(-25, 25)) / 5) * 5;
     if (price < 30) { price = 30; }
-        price = price * PRICE_SCALE;
+    price = price * PRICE_SCALE;
     const value = ((sound + battery) / 2) / price * 100;
     return { name: n + ' Headphones', sound: sound, battery: battery, price: price,
              value: value, commission: 0.12 * price };
@@ -419,7 +432,7 @@ rounds.forEach(function (rd) {
       stimulus: '<h3>Round ' + rd.round + ' of ' + N_ROUNDS + '</h3>' +
                 '<p>Choose the best-value headphones. The buttons unlock after ' + (VIEW_MS / 1000) + ' seconds.</p>',
       choices: rd.items.map(function (i) {
-        return '<b>' + i.name + '</b><br>Sound: ' + i.sound + '/10<br>Battery: ' + i.battery + '/10<br>'Price: Rs ' + i.price.toLocaleString('en-US');
+        return '<b>' + i.name + '</b><br>Sound: ' + i.sound + '/10<br>Battery: ' + i.battery + '/10<br>Price: Rs ' + i.price.toLocaleString('en-US');
       }),
       enable_button_after: VIEW_MS,
       button_layout: 'grid',
@@ -459,7 +472,10 @@ const feedback = {
   choices: ['Continue'],
   data: { screen: 'feedback' }
 };
-// ---- Part 6: final checks, background questions, debrief ----
+
+// =====================================================================
+// PART 6: FINAL CHECKS, BACKGROUND QUESTIONS, DEBRIEF
+// =====================================================================
 const manipCheck = {
   type: jsPsychHtmlButtonResponse,
   stimulus: '<p>Thinking back to the description of ShopMate:</p>' +
@@ -525,12 +541,14 @@ const debrief = {
   type: jsPsychHtmlButtonResponse,
   stimulus: function () {
     const pid = jsPsych.data.get().last(1).values()[0].participant_id;
-    return '<h3>About this study</h3>' +
-      '<p>Thank you for taking part. ShopMate was a <b>simulated</b> shopping assistant and the products were made up. No real purchases were made.</p>' +
-      '<p>Half of the participants read that ShopMate earns commissions from sellers, and half read that it does not. Which description you saw was decided at random, and the assistant did not actually earn anything. We did this to study how much people let a shopping assistant do for them.</p>' +
-      '<p>PLACEHOLDER: add your ethics-approved debrief text, contact details, and approval number here.</p>' +
-      '<p>Your participant code is <b>' + pid + '</b>. Keep it if you ever want to ask for your data to be removed.</p>' +
-      '<p><b>Now that you know what the study was about, may we keep your answers?</b></p>';
+    return '<div style="text-align:left;max-width:680px;margin:auto">' +
+      '<h3>About this study</h3>' +
+      '<p>Thank you for taking part. ShopMate was a <b>simulated</b> shopping assistant, and the products were made up. No real purchases were made, and ShopMate did not earn any commission.</p>' +
+      '<p>Half of the participants read that ShopMate earns commissions from sellers, and half read that it does not. Which description you saw was decided at random. We did this to study how much freedom people give an assistant, and whether it depends on whose interests they believe it serves. We did not tell you this at the start because it could have changed your answers.</p>' +
+      '<p>The score you saw was based on a made-up task. It is not a measure of your ability or judgment.</p>' +
+      '<p>Your participant code is <b>' + pid + '</b>. Keep it if you want to ask for your data to be removed later.</p>' +
+      '<p><b>Now that you know what the study was about, may we keep your answers?</b></p>' +
+      '</div>';
   },
   choices: ['Yes, keep my data in the study', 'No, please delete my data'],
   data: { screen: 'debrief' },
@@ -539,7 +557,16 @@ const debrief = {
   }
 };
 
-// ---- Run everything in order ----
+const endScreen = {
+  type: jsPsychHtmlButtonResponse,
+  stimulus: '<p>That is the end of the study. Click Finish to save your answers, and keep this page open until you see a message that your answers were saved.</p>',
+  choices: ['Finish'],
+  data: { screen: 'end' }
+};
+
+// =====================================================================
+// RUN EVERYTHING IN ORDER
+// =====================================================================
 jsPsych.run(
   [consent, profileCard, check, ladderIntro]
     .concat(ladderTrials)
