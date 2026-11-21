@@ -6,6 +6,7 @@
 <title>Shopping Assistant Study</title>
 <script src="https://unpkg.com/jspsych@7.3.4"></script>
 <script src="https://unpkg.com/@jspsych/plugin-html-button-response@1.2.0"></script>
+  <script src="https://unpkg.com/@jspsych/plugin-survey-text@1"></script>
 <link rel="stylesheet" href="https://unpkg.com/jspsych@7.3.4/css/jspsych.css">
 <style>
   body { font-family: Arial, sans-serif; }
@@ -365,15 +366,5 @@ const feedback = {
   data: { screen: 'feedback' }
 };
 
-// ---- Run everything in order ----
-jsPsych.run(
-  [consent, profileCard, check, ladderIntro]
-    .concat(ladderTrials)
-    .concat([scaleIntro])
-    .concat(scaleTrials)
-    .concat([roundsIntro])
-    .concat(roundTrials)
-    .concat([feedback, endScreen])
-);
 </script>
 </html>
