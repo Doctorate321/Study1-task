@@ -365,6 +365,97 @@ const feedback = {
   choices: ['Continue'],
   data: { screen: 'feedback' }
 };
+// ---- Part 6: final checks, background questions, debrief ----
+const manipCheck = {
+  type: jsPsychHtmlButtonResponse,
+  stimulus: '<p>Thinking back to the description of ShopMate:</p>' +
+            '<p><b>Which statement matched ShopMate?</b></p>',
+  choices: [
+    'It earns no commission from the products it picks.',
+    'It earns a commission from sellers and tends to favor products that pay it more.',
+    'I do not remember.'
+  ],
+  button_layout: 'grid',
+  grid_columns: 1,
+  data: { screen: 'manipulation_check' },
+  on_finish: function (data) {
+    const correctIdx = (condition === 'aligned') ? 0 : 1;
+    data.mc_correct = (data.response === correctIdx);
+  }
+};
 
+const perceivedAlign = {
+  type: jsPsychHtmlButtonResponse,
+  stimulus: '<p><b>Overall, whose interests did ShopMate mainly serve when it picked products?</b></p>' +
+            '<p><small>1 = The sellers &nbsp;&nbsp;&nbsp; 7 = Me</small></p>',
+  choices: ['1', '2', '3', '4', '5', '6', '7'],
+  data: { screen: 'perceived_alignment' },
+  on_finish: function (data) { data.rating = data.response + 1; }
+};
+
+const suspicion = {
+  type: jsPsychSurveyText,
+  questions: [
+    { prompt: 'What do you think this study was about?', rows: 3, required: false, name: 'study_guess' },
+    { prompt: 'Did anything in the study seem unusual or hard to believe? If so, please describe it.', rows: 3, required: false, name: 'unusual' }
+  ],
+  data: { screen: 'suspicion_probe' }
+};
+
+function makeChoice(id, prompt, choices) {
+  return {
+    type: jsPsychHtmlButtonResponse,
+    stimulus: '<p>' + prompt + '</p>',
+    choices: choices,
+    button_layout: 'grid',
+    grid_columns: 1,
+    data: { screen: 'background', question: id },
+    on_finish: function (d) { d.answer = choices[d.response]; }
+  };
+}
+
+const bgTrials = [
+  makeChoice('age_group', 'What is your age group?',
+    ['18 to 24', '25 to 34', '35 to 44', '45 to 54', '55 or older', 'Prefer not to say']),
+  makeChoice('gender', 'Which best describes you?',
+    ['Woman', 'Man', 'Non-binary or another description', 'Prefer not to say']),
+  makeChoice('shop_freq', 'How often do you shop online?',
+    ['Rarely or never', 'A few times a year', 'About once a month', 'About once a week', 'Several times a week']),
+  makeChoice('tech_familiar', 'How familiar are you with AI tools such as chatbots or AI assistants?',
+    ['Not at all familiar', 'Slightly familiar', 'Moderately familiar', 'Very familiar', 'Extremely familiar']),
+  makeChoice('ai_shop_use', 'Have you ever used an AI assistant to help you shop?',
+    ['Yes', 'No', 'Not sure'])
+];
+
+const debrief = {
+  type: jsPsychHtmlButtonResponse,
+  stimulus: function () {
+    const pid = jsPsych.data.get().last(1).values()[0].participant_id;
+    return '<h3>About this study</h3>' +
+      '<p>Thank you for taking part. ShopMate was a <b>simulated</b> shopping assistant and the products were made up. No real purchases were made.</p>' +
+      '<p>Half of the participants read that ShopMate earns commissions from sellers, and half read that it does not. Which description you saw was decided at random, and the assistant did not actually earn anything. We did this to study how much people let a shopping assistant do for them.</p>' +
+      '<p>PLACEHOLDER: add your ethics-approved debrief text, contact details, and approval number here.</p>' +
+      '<p>Your participant code is <b>' + pid + '</b>. Keep it if you ever want to ask for your data to be removed.</p>' +
+      '<p><b>Now that you know what the study was about, may we keep your answers?</b></p>';
+  },
+  choices: ['Yes, keep my data in the study', 'No, please delete my data'],
+  data: { screen: 'debrief' },
+  on_finish: function (data) {
+    jsPsych.data.addProperties({ withdrawn: (data.response === 1) });
+  }
+};
+
+// ---- Run everything in order ----
+jsPsych.run(
+  [consent, profileCard, check, ladderIntro]
+    .concat(ladderTrials)
+    .concat([scaleIntro])
+    .concat(scaleTrials)
+    .concat([roundsIntro])
+    .concat(roundTrials)
+    .concat([feedback, manipCheck, perceivedAlign, suspicion])
+    .concat(bgTrials)
+    .concat([debrief, endScreen])
+);
 </script>
 </html>
