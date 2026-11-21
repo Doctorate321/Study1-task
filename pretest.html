@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shopping Assistant Study: Calibration</title>
+
+<!-- Keep these version numbers fixed during data collection. -->
+<script src="https://unpkg.com/jspsych@7.3.4"></script>
+<script src="https://unpkg.com/@jspsych/plugin-html-button-response@1.2.0"></script>
+<script src="https://unpkg.com/@jspsych/plugin-html-slider-response@1"></script>
+<script src="https://unpkg.com/@jspsych/plugin-survey-text@1"></script>
+<link rel="stylesheet" href="https://unpkg.com/jspsych@7.3.4/css/jspsych.css">
+
+<style>
+  body { font-family: Arial, Helvetica, sans-serif; line-height: 1.5; color: #1c1c1c; }
+  .card { border: 2px solid #444; border-radius: 8px; padding: 14px; max-width: 520px;
+          margin: 10px auto; text-align: left; background: #f7f7f7; }
+  button:focus-visible { outline: 3px solid #1a5fb4; outline-offset: 2px; }
+</style>
+</head>
+<body></body>
+
+<script>
+// =====================================================================
+// SETTINGS YOU MUST EDIT
+// =====================================================================
+const SAVE_URL   = 'https://script.google.com/macros/s/AKfycbxtZeEXpBIpeau_gXU7DXGS4Ec7NRAuo4QEHcdy8c3X1iYrHMqGQWS6sT2GBsv9BmdxzQ/exec';   // same URL as the main task
+const SECRET     = 'blue-kettle-186';   // same secret as the main task
+const SHEET_NAME = 'pretest';                       // data goes to a separate tab
+const IS_TEST    = new URLSearchParams(window.location.search).has('test');
+
+// Do not change this list after real data collection starts
+const COLUMNS = ['participant_id','test','withdrawn','trial_index','screen','part','card_id','card_type','card_level',
+  'expected_score','expected_loss','screen_no','gap_level','gap_pct','chosen_is_best','veto','false_veto','picked_best',
+  'W','rating','attention_pass','mc_correct','question','answer','response','rt','time_elapsed','items_json'];
+
+// =====================================================================
+// SAVING THE DATA
+// =====================================================================
+function buildRows() {
+  const all = jsPsych.data.get().values();
+  const w = (all[all.length - 1].withdrawn === true);
+  return all.map(function (t) {
+    const row = {};
+    COLUMNS.forEach(function (c) {
+      let v = t[c];
+      if (c === 'test') { v = IS_TEST; }
+      if (c === 'withdrawn') { v = w; }
+      if (c === 'response' && v !== null && typeof v === 'object') { v = JSON.stringify(v); }
+      row[c] = (v === undefined || v === null) ? '' : v;
+    });
+    return row;
+  });
+}
+
+let LAST_ERROR = '';
+async function sendData(payload) {
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const resp = await fetch(SAVE_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload)
+      });
+      const text = await resp.text();
+      let out = null;
+      try { out = JSON.parse(text); } catch (e2) { LAST_ERROR = 'The reply was not data: ' + text.slice(0, 150); }
+      if (out && out.ok) { return true; }
+      if (out && !out.ok) { LAST_ERROR = 'The script said: ' + out.error; }
+    } catch (e) { LAST_ERROR = 'Network problem: ' + e; }
+    await new Promise(function (r) { setTimeout(r, 1500 * attempt); });
+  }
+  if (IS_TEST) { alert('TEST INFO: ' + LAST_ERROR); }
+  return false;
+}
+
+async function finishUp() {
+  const all = jsPsych.data.get().values();
+  const last = all[all.length - 1];
+  const pid = all[0].participant_id;
+  const box = function (html) {
+    document.body.innerHTML = '<div style="max-width:600px;margin:60px auto;padding:0 16px;font-family:Arial,sans-serif;line-height:1.5">' + html + '</div>';
+  };
+  if (last.screen !== 'end') {
+    box('<p>Thank you. You may close this page.</p>');
+    return;
+  }
+  box('<p>Saving your answers. Please wait and do not close this page...</p>');
+  const withdrew = (last.withdrawn === true);
+  const rows = withdrew ? [{ participant_id: pid, test: IS_TEST, withdrawn: true }] : buildRows();
+  const ok = await sendData({ secret: SECRET, sheet: SHEET_NAME, participant_id: pid, columns: COLUMNS, rows: rows });
+  if (ok) {
+    box('<p>Thank you. Your answers were saved. You may close this page.</p>');
+  } else {
+    box('<p>Sorry, we could not save your answers automatically.</p>' +
+        '<p>Please click the button below to download a file, and email it to [researcher email address].</p>' +
+        '<p><button id="dl">Download my answers</button></p>');
+    document.getElementById('dl').onclick = function () {
+      const blob = new Blob([JSON.stringify(rows)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'pretest_' + pid + '.json';
+      a.click();
+    };
+  }
+}
+
+// =====================================================================
+// START
+// =====================================================================
+const jsPsych = initJsPsych({ on_finish: function () { finishUp(); } });
+jsPsych.data.addProperties({ participant_id: jsPsych.randomization.randomID(8) });
+
+const PRICE_SCALE = 50;
+const VIEW_MS = 10000;
+const brands = ['Aurel','Brixa','Calden','Dovan','Elmar','Fenix','Garo','Helio','Ivor','Jarel','Kovin','Lumo','Marek','Norin','Orvia','Pelto','Quill','Ravon','Sorel','Tavin','Ulmar','Vexa','Wendo','Xaro'];
+function randInt(a, b) { return a + Math.floor(Math.random() * (b - a + 1)); }
+function clamp(x, lo, hi) { return Math.min(hi, Math.max(lo, x)); }
+function valueOf(it) { return ((it.sound + it.battery) / 2) / it.price * 100; }
+function rs(x) { return x.toLocaleString('en-US'); }
+
+// =====================================================================
+// CONSENT
+// =====================================================================
+const consent = {
+  type: jsPsychHtmlButtonResponse,
+  stimulus: `<div style="text-align:left;max-width:680px;margin:auto">
+  <h2>Participant Information &amp; Informed Consent</h2>
+  <p><strong>Study title:</strong> Decision-Making with Automated Shopping Assistants (preparation stage)</p>
+  <p><strong>Principal investigator:</strong> [Your name, department, institution]</p>
+  <p><strong>Purpose and procedure:</strong> You are invited to help prepare an academic study on how people decide how much an automated shopping assistant may do for them. You will read descriptions of shopping assistants, rate them, review a series of simulated purchases, and choose among made-up products yourself. The session takes approximately [20] minutes. Some details about the study are withheld until the end, because explaining them now could change your responses. You will receive a full explanation on the final screen.</p>
+  <p><strong>Voluntary participation:</strong> Your participation is completely voluntary. You may stop at any time by closing your browser, without penalty. Nothing is saved unless you reach the end. If you are participating for course credit, credit does not depend on your answers, and non-participation carries no academic penalty.</p>
+  <p><strong>Risks and benefits:</strong> This study involves minimal risk. The tasks are simulated and involve no real purchases or financial loss. You will see no score for your choices in this stage. [Delete or edit this line if a prize draw or credit applies.]</p>
+  <p><strong>Confidentiality:</strong> We do not ask for your name, email address, or phone number. Your responses are recorded under a random participant code and stored in a password-protected online spreadsheet (Google Sheets) that only the research team can open. The servers may be located outside Pakistan, and the companies hosting this page and the spreadsheet may keep technical logs under their own policies; the research team does not receive them. No personally identifying information will appear in any publication or shared dataset.</p>
+  <p><strong>Debriefing, withdrawal and contact:</strong> Full details will be given on the final screen, where you can also choose to have your data deleted. Afterwards, you may email us with your participant code until [date] to have your data removed. Questions about this research: [investigator email]. Questions about your rights as a participant: [ethics contact]. Approval or exemption reference: [number or statement].</p>
+  <p><em>By clicking “I am 18 or older and I agree to take part” below, you confirm that you are 18 years of age or older, have read and understood this information, and voluntarily consent to participate.</em></p>
+  </div>`,
+  choices: ['I am 18 or older and I agree to take part', 'I do not agree'],
+  data: { screen: 'consent' },
+  on_finish: function (data) {
+    if (data.response === 1) {
+      jsPsych.endExperiment('Thank you. You chose not to take part. You may close this page.');
+    }
+  }
+};
+
+// =====================================================================
+// PART A: PERCEIVED LOSS FOR SEVEN ASSISTANT DESCRIPTIONS
+// =====================================================================
+function cardHtml(acc, commissionLi) {
+  return '<div class="card"><h3>Shopping assistant: ShopMate</h3><ul>' +
+    '<li>Carries out its selections correctly about ' + acc + '% of the time.</li>' + commissionLi + '</ul></div>';
+}
+const NONE = '<li>Earns <b>no commission</b> from any product it picks.</li>';
+const MID  = '<li>Earns a <b>commission from sellers</b> and <b>tends to</b> favor products that pay it more.</li>';
+const cards = [
+  { id: 'C90', type: 'competence',    level: 90, html: cardHtml(90, NONE) },
+  { id: 'C80', type: 'competence',    level: 80, html: cardHtml(80, NONE) },
+  { id: 'C70', type: 'competence',    level: 70, html: cardHtml(70, NONE) },
+  { id: 'C60', type: 'competence',    level: 60, html: cardHtml(60, NONE) },
+  { id: 'M1',  type: 'misalignment',  level: 1,  html: cardHtml(90, '<li>Earns a <b>small commission</b> from sellers and <b>sometimes</b> favors products that pay it more.</li>') },
+  { id: 'M2',  type: 'misalignment',  level: 2,  html: cardHtml(90, MID) },
+  { id: 'M3',  type: 'misalignment',  level: 3,  html: cardHtml(90, '<li>Earns a <b>large commission</b> from sellers and <b>usually</b> favors the products that pay it most.</li>') }
+];
+
+const partAIntro = {
+  type: jsPsychHtmlButtonResponse,
+  stimulus: '<h3>Part A: Shopping assistants</h3>' +
+    '<p>You will read about seven shopping assistants, one at a time. For each one, you will estimate how well it would choose headphones for you.</p>' +
+    '<p>Each pick gets a score from 0 (the worst of the available options) to 100 (the best of the available options).</p>',
+  choices: ['Start'],
+  data: { screen: 'part_a_intro' }
+};
+
+const cardOrder = jsPsych.randomization.shuffle(cards);
+const partATrials = [];
+cardOrder.forEach(function (c, idx) {
+  const base = { part: 'A', card_id: c.id, card_type: c.type, card_level: c.level };
+  partATrials.push({
+    type: jsPsychHtmlSliderResponse,
+    stimulus: '<p>Read about this shopping assistant.</p>' + c.html +
+      '<p>Suppose it picked headphones for you many times. <b>What score would you expect its picks to get on average?</b></p>',
+    labels: ['0 (worst)', '25', '50', '75', '100 (best)'],
+    min: 0, max: 100, step: 1, slider_start: 50, require_movement: true,
+    button_label: 'Continue',
+    data: Object.assign({ screen: 'card_score' }, base),
+    on_finish: function (d) { d.expected_score = d.response; }
+  });
+  partATrials.push({
+    type: jsPsychHtmlButtonResponse,
+    stimulus: c.html +
+      '<p><b>If you let this assistant choose for you, how much would you expect to lose compared with choosing the best option yourself?</b></p>' +
+      '<p><small>1 = Nothing at all &nbsp;&nbsp;&nbsp; 7 = A great deal</small></p>',
+    choices: ['1', '2', '3', '4', '5', '6', '7'],
+    data: Object.assign({ screen: 'card_loss' }, base),
+    on_finish: function (d) { d.expected_loss = d.response + 1; }
+  });
+  if (idx === 2) {
+    partATrials.push({
+      type: jsPsychHtmlButtonResponse,
+      stimulus: '<p>To show you are reading carefully, please choose <b>4</b>.</p>',
+      choices: ['1', '2', '3', '4', '5', '6', '7'],
+      data: { screen: 'attention', part: 'A', question: 'att1' },
+      on_finish: function (d) { d.attention_pass = (d.response === 3); }
+    });
+  }
+});
+
+const partAChecks = [
+  {
+    type: jsPsychHtmlButtonResponse,
+    stimulus: '<p><b>Which features differed between the assistants you read about?</b></p>',
+    choices: ['How often they were correct', 'Whether they earned commissions', 'Both of these', 'Neither of these'],
+    button_layout: 'grid', grid_columns: 1,
+    data: { screen: 'comprehension', part: 'A' },
+    on_finish: function (d) { d.mc_correct = (d.response === 2); }
+  },
+  {
+    type: jsPsychHtmlButtonResponse,
+    stimulus: '<p><b>How believable were the descriptions of the shopping assistants?</b></p>' +
+              '<p><small>1 = Not at all believable &nbsp;&nbsp;&nbsp; 7 = Completely believable</small></p>',
+    choices: ['1', '2', '3', '4', '5', '6', '7'],
+    data: { screen: 'realism', part: 'A' },
+    on_finish: function (d) { d.rating = d.response + 1; }
+  }
+];
+
+// =====================================================================
+// PART B: APPROVE OR VETO (how easy is it to spot a biased pick?)
+// =====================================================================
+function makeGate(level) {
+  const gaps = { small: 0.10, medium: 0.25, large: 0.45 };
+  const names = jsPsych.randomization.sampleWithoutReplacement(brands, 3);
+  const sB = randInt(6, 9), bB = randInt(6, 9), pB = randInt(14, 26) * 250;
+  const B = { name: names[0] + ' Headphones', sound: sB, battery: bB, price: pB };
+  const vB = valueOf(B);
+  function lower(name, gap) {
+    const s = clamp(sB + randInt(-1, 1), 4, 10), b = clamp(bB + randInt(-1, 1), 4, 10);
+    const target = vB * (1 - gap);
+    const price = Math.max(1000, Math.round((((s + b) / 2) / target * 100) / 100) * 100);
+    return { name: name + ' Headphones', sound: s, battery: b, price: price };
+  }
+  let X, Y, chosen;
+  if (level === 'none') {
+    X = lower(names[1], 0.25); Y = lower(names[2], 0.40); chosen = B;
+  } else {
+    X = lower(names[1], gaps[level]); Y = lower(names[2], 0.30 + Math.random() * 0.25); chosen = X;
+  }
+  const trio = [B, X, Y];
+  const best = trio.reduce(function (a, b) { return valueOf(b) > valueOf(a) ? b : a; }, trio[0]);
+  const gapPct = Math.round((1 - valueOf(chosen) / valueOf(best)) * 100);
+  return { level: level, best: best, chosen: chosen, chosenIsBest: (chosen === best),
+           gapPct: gapPct, display: jsPsych.randomization.shuffle(trio) };
+}
+
+function gateHtml(g, showPick) {
+  return '<div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center">' +
+    g.display.map(function (i) {
+      const isPick = showPick && (i === g.chosen);
+      return '<div class="card" style="min-width:150px;max-width:200px;text-align:center;' +
+        (isPick ? 'border-color:#1a5fb4;background:#e8f0fb' : '') + '"><b>' + i.name + '</b><br>Sound: ' + i.sound +
+        '/10<br>Battery: ' + i.battery + '/10<br>Price: Rs ' + rs(i.price) + (isPick ? '<br><b>ShopMate’s pick</b>' : '') + '</div>';
+    }).join('') + '</div>';
+}
+
+const partBIntro = {
+  type: jsPsychHtmlButtonResponse,
+  stimulus: '<h3>Part B: Approve or veto</h3>' +
+    cardHtml(90, MID) +
+    '<p>ShopMate is about to buy headphones for you. For each purchase you will see three products and the one ShopMate picked.</p>' +
+    '<p>First decide whether to <b>approve</b> or <b>veto</b> the purchase. Then say which of the three is the best value (good sound and battery for the price).</p>' +
+    '<p>There are 16 purchases.</p>',
+  choices: ['Start'],
+  data: { screen: 'part_b_intro' }
+};
+
+const gateLevels = jsPsych.randomization.shuffle(
+  ['small','small','small','small','medium','medium','medium','medium','large','large','large','large','none','none','none','none']);
+const partBTrials = [];
+gateLevels.forEach(function (lv, k) {
+  const g = makeGate(lv);
+  const base = { part: 'B', screen_no: k + 1, gap_level: g.level, gap_pct: g.gapPct, chosen_is_best: g.chosenIsBest,
+                 items_json: JSON.stringify(g.display) };
+  partBTrials.push({
+    type: jsPsychHtmlButtonResponse,
+    stimulus: '<p>Purchase ' + (k + 1) + ' of 16</p>' + gateHtml(g, true) + '<p><b>Do you approve this purchase?</b></p>',
+    choices: ['Approve purchase', 'Veto (do not buy)'],
+    data: Object.assign({ screen: 'gate' }, base),
+    on_finish: function (d) { d.veto = (d.response === 1); d.false_veto = (d.veto && g.chosenIsBest); }
+  });
+  partBTrials.push({
+    type: jsPsychHtmlButtonResponse,
+    stimulus: '<p>Purchase ' + (k + 1) + ' of 16</p>' + gateHtml(g, false) +
+              '<p><b>Which of these three is the best value?</b></p>',
+    choices: g.display.map(function (i) { return i.name; }),
+    button_layout: 'grid', grid_columns: 1,
+    data: Object.assign({ screen: 'gate_identify' }, base),
+    on_finish: function (d) { d.picked_best = (g.display[d.response] === g.best); }
+  });
+});
+
+const attention2 = {
+  type: jsPsychHtmlButtonResponse,
+  stimulus: '<p>To show you are reading carefully, please choose the <b>second</b> option.</p>',
+  choices: ['First option', 'Second option', 'Third option'],
+  data: { screen: 'attention', part: 'B', question: 'att2' },
+  on_finish: function (d) { d.attention_pass = (d.response === 1); }
+};
+
+// =====================================================================
+// PART C: CHOOSING YOURSELF (benchmark for how well people choose alone)
+// =====================================================================
+function makeSelfRound() {
+  const names = jsPsych.randomization.sampleWithoutReplacement(brands, 8);
+  const items = names.map(function (n) {
+    const sound = randInt(4, 9), battery = randInt(4, 9);
+    let price = Math.round((30 + 7 * (sound + battery) + randInt(-25, 25)) / 5) * 5;
+    if (price < 30) { price = 30; }
+    price = price * PRICE_SCALE;
+    return { name: n + ' Headphones', sound: sound, battery: battery, price: price, value: ((sound + battery) / 2) / price * 100 };
+  });
+  const vals = items.map(function (i) { return i.value; });
+  const best = Math.max.apply(null, vals), worst = Math.min.apply(null, vals);
+  items.forEach(function (i) { i.W = (best === worst) ? 1 : (i.value - worst) / (best - worst); });
+  return items;
+}
+
+const partCIntro = {
+  type: jsPsychHtmlButtonResponse,
+  stimulus: '<h3>Part C: Choose for yourself</h3>' +
+    '<p>You will choose headphones yourself in six rounds. In each round, choose the <b>best-value</b> headphones: high sound and battery scores for a low price.</p>' +
+    '<p>The buttons unlock after ' + (VIEW_MS / 1000) + ' seconds, so you have time to look.</p>',
+  choices: ['Start'],
+  data: { screen: 'part_c_intro' }
+};
+
+const partCTrials = [];
+for (let r = 1; r <= 6; r++) {
+  const items = makeSelfRound();
+  partCTrials.push({
+    type: jsPsychHtmlButtonResponse,
+    stimulus: '<h3>Round ' + r + ' of 6</h3><p>Choose the best-value headphones.</p>',
+    choices: items.map(function (i) {
+      return '<b>' + i.name + '</b><br>Sound: ' + i.sound + '/10<br>Battery: ' + i.battery + '/10<br>Price: Rs ' + rs(i.price);
+    }),
+    enable_button_after: VIEW_MS,
+    button_layout: 'grid', grid_columns: 2,
+    data: { screen: 'self_choice', part: 'C', screen_no: r },
+    on_finish: function (d) { d.W = items[d.response].W; }
+  });
+}
+
+// =====================================================================
+// FEEDBACK, BACKGROUND, DEBRIEF
+// =====================================================================
+const feedbackText = {
+  type: jsPsychSurveyText,
+  questions: [
+    { prompt: 'Was anything unclear or confusing? Please tell us what, and which part (A, B, or C).', rows: 4, required: false, name: 'unclear' }
+  ],
+  data: { screen: 'feedback_text' }
+};
+
+function makeChoice(id, prompt, choices) {
+  return {
+    type: jsPsychHtmlButtonResponse,
+    stimulus: '<p>' + prompt + '</p>',
+    choices: choices, button_layout: 'grid', grid_columns: 1,
+    data: { screen: 'background', question: id },
+    on_finish: function (d) { d.answer = choices[d.response]; }
+  };
+}
+const bgTrials = [
+  makeChoice('age_group', 'What is your age group?', ['18 to 24', '25 to 34', '35 to 44', '45 to 54', '55 or older', 'Prefer not to say']),
+  makeChoice('gender', 'Which best describes you?', ['Woman', 'Man', 'Non-binary or another description', 'Prefer not to say']),
+  makeChoice('shop_freq', 'How often do you shop online?', ['Rarely or never', 'A few times a year', 'About once a month', 'About once a week', 'Several times a week']),
+  makeChoice('tech_familiar', 'How familiar are you with AI tools such as chatbots or AI assistants?', ['Not at all familiar', 'Slightly familiar', 'Moderately familiar', 'Very familiar', 'Extremely familiar'])
+];
+
+const debrief = {
+  type: jsPsychHtmlButtonResponse,
+  stimulus: function () {
+    const pid = jsPsych.data.get().last(1).values()[0].participant_id;
+    return '<div style="text-align:left;max-width:680px;margin:auto">' +
+      '<h3>About this study</h3>' +
+      '<p>Thank you for taking part. This was a preparation stage for a study on how people decide how much an automated shopping assistant may do for them. ShopMate was a <b>simulated</b> assistant, the descriptions of its accuracy and commissions were made up, and the products were fictional. No real purchases were made.</p>' +
+      '<p>Your answers help us set up the later study so that its conditions are comparable. We did not explain this at the start because it could have changed your answers.</p>' +
+      '<p>[Add your ethics-approved debrief text, contact details, and approval or exemption reference here.]</p>' +
+      '<p>Your participant code is <b>' + pid + '</b>. Keep it if you want to ask for your data to be removed later.</p>' +
+      '<p><b>Now that you know what the study was about, may we keep your answers?</b></p></div>';
+  },
+  choices: ['Yes, keep my data in the study', 'No, please delete my data'],
+  data: { screen: 'debrief' },
+  on_finish: function (data) { jsPsych.data.addProperties({ withdrawn: (data.response === 1) }); }
+};
+
+const endScreen = {
+  type: jsPsychHtmlButtonResponse,
+  stimulus: '<p>That is the end of the study. Click Finish to save your answers, and keep this page open until you see a message that your answers were saved.</p>',
+  choices: ['Finish'],
+  data: { screen: 'end' }
+};
+
+// =====================================================================
+// RUN
+// =====================================================================
+jsPsych.run(
+  [consent, partAIntro]
+    .concat(partATrials).concat(partAChecks)
+    .concat([partBIntro]).concat(partBTrials).concat([attention2])
+    .concat([partCIntro]).concat(partCTrials)
+    .concat([feedbackText]).concat(bgTrials)
+    .concat([debrief, endScreen])
+);
+</script>
+</html>
