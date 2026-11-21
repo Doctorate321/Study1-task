@@ -16,9 +16,82 @@
 </head>
 <body></body>
 <script>
-// ---- Start the experiment and show the saved data at the end ----
+// ---- Cloud saving settings ----
+const SAVE_URL = 'PASTE_YOUR_WEB_APP_URL_HERE';
+const SECRET = 'PASTE_YOUR_SECRET_WORD_HERE';
+const IS_TEST = new URLSearchParams(window.location.search).has('test');
+
+// Do not change this list after real data collection starts
+const COLUMNS = ['participant_id','test','condition','withdrawn','trial_index','screen','facet','scale','item_id',
+  'round','question','response','rating','rung_score','inconsistent','correct','attention_pass','delegate','W',
+  'chosen_by','agent_pick','mc_correct','answer','rt','time_elapsed','ladder_order','scale_block_order',
+  'avg_welfare','delegation_count','consequence_round','consequence_W','items_json'];
+
+function buildRows() {
+  const all = jsPsych.data.get().values();
+  const w = (all[all.length - 1].withdrawn === true);
+  return all.map(function (t) {
+    const row = {};
+    COLUMNS.forEach(function (c) {
+      let v = t[c];
+      if (c === 'test') { v = IS_TEST; }
+      if (c === 'withdrawn') { v = w; }
+      if (c === 'response' && v !== null && typeof v === 'object') { v = JSON.stringify(v); }
+      row[c] = (v === undefined || v === null) ? '' : v;
+    });
+    return row;
+  });
+}
+
+async function sendData(payload) {
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const resp = await fetch(SAVE_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload)
+      });
+      const out = await resp.json();
+      if (out && out.ok) { return true; }
+    } catch (e) { /* wait and try again */ }
+    await new Promise(function (r) { setTimeout(r, 1500 * attempt); });
+  }
+  return false;
+}
+
+async function finishUp() {
+  const all = jsPsych.data.get().values();
+  const last = all[all.length - 1];
+  const pid = all[0].participant_id;
+  const box = function (html) {
+    document.body.innerHTML = '<div style="max-width:600px;margin:60px auto;font-family:Arial,sans-serif;line-height:1.5">' + html + '</div>';
+  };
+  if (last.screen !== 'end') {   // did not finish, for example did not consent
+    box('<p>Thank you. You may close this page.</p>');
+    return;
+  }
+  box('<p>Saving your answers. Please wait and do not close this page...</p>');
+  const withdrew = (last.withdrawn === true);
+  const rows = withdrew ? [{ participant_id: pid, test: IS_TEST, withdrawn: true }] : buildRows();
+  const ok = await sendData({ secret: SECRET, participant_id: pid, columns: COLUMNS, rows: rows });
+  if (ok) {
+    box('<p>Thank you. Your answers were saved. You may close this page.</p>');
+  } else {
+    box('<p>Sorry, we could not save your answers automatically.</p>' +
+        '<p>Please click the button below to download a file, and email it to PLACEHOLDER: researcher email address.</p>' +
+        '<p><button id="dl">Download my answers</button></p>');
+    document.getElementById('dl').onclick = function () {
+      const blob = new Blob([JSON.stringify(rows)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'study1_' + pid + '.json';
+      a.click();
+    };
+  }
+}
+
 const jsPsych = initJsPsych({
-  on_finish: function () { jsPsych.data.displayData(); }
+  on_finish: function () { finishUp(); }
 });
 
 // ---- Randomly choose which assistant this person sees ----
