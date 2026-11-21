@@ -124,10 +124,25 @@ const cardToShow = (condition === 'aligned') ? cardAligned : cardMisaligned;
 // ---- Screen 1: welcome and consent ----
 const consent = {
   type: jsPsychHtmlButtonResponse,
-  stimulus: '<h2>Welcome</h2>' +
-    '<p>PLACEHOLDER: paste your ethics-approved information and consent text here.</p>' +
-    '<p>Taking part is voluntary. You may stop at any time.</p>',
-  choices: ['I agree to take part', 'I do not agree'],
+  stimulus: `<div style="text-align:left;max-width:680px;margin:auto">
+  <h2>Participant Information &amp; Informed Consent</h2>
+
+  <p><strong>Study title:</strong> Decision-Making with Automated Shopping Assistants</p>
+  <p><strong>Principal investigator:</strong> [Your name, department, institution]</p>
+
+  <p><strong>Purpose and procedure:</strong> You are invited to take part in a single-session academic study on how people decide how much an automated shopping assistant may do for them. You will read a brief description of a digital shopping assistant, answer a set of questions, and complete a simulated product-selection task using made-up products. The session takes approximately [20 to 25] minutes. Some details about the study are withheld until the end, because explaining them now could change your responses. You will receive a full explanation on the final screen.</p>
+
+  <p><strong>Voluntary participation and academic credit:</strong> Your participation is completely voluntary. You may stop at any time by closing your browser, without penalty. Nothing is saved unless you reach the end of the task. If you are participating for course credit, credit is granted independently of your task decisions or performance, and non-participation carries no academic penalty.</p>
+
+  <p><strong>Risks, benefits and stakes:</strong> This study involves minimal risk. The shopping tasks are simulated and involve no real purchases or personal financial loss. You will see a score for your choices; it is part of a made-up task and says nothing about your ability. [Optional, only if approved: One randomly selected round will determine your entry into a prize draw / bonus credit allocation.]</p>
+
+  <p><strong>Confidentiality and data protection:</strong> We do not ask for your name, email address, or phone number. Your responses are recorded under a random participant code and stored in a password-protected online spreadsheet (Google Sheets) that only the research team can open. The servers may be located outside Pakistan, and the companies hosting this page and the spreadsheet may keep technical logs under their own policies; the research team does not receive them. No personally identifying information will appear in any publication or shared dataset.</p>
+
+  <p><strong>Debriefing, withdrawal and contact:</strong> Full details about the study will be given on the final screen, where you can also choose to have your data deleted. Afterwards, you may email us with your participant code until [date] to have your data removed. For questions about this research, contact [investigator email]. For questions about your rights as a participant, contact [ethics committee name and email]. Approval number: [number].</p>
+
+  <p><em>By clicking “I am 18 or older and I agree to take part” below, you confirm that you are 18 years of age or older, have read and understood this information, and voluntarily consent to participate.</em></p>
+  </div>`,
+  choices: ['I am 18 or older and I agree to take part', 'I do not agree'],
   data: { screen: 'consent' },
   on_finish: function (data) {
     if (data.response === 1) {
@@ -193,12 +208,11 @@ const ladderFacets = [
     title: 'Spending limit',
     question: 'PLACEHOLDER: the typical price in this shop is [amount]. How much may the assistant spend on one purchase?',
     rungs: [
-      'Up to 25% of the typical price.',
-      'Up to 50% of the typical price.',
-      'Up to 75% of the typical price.',
-      'Up to 100% of the typical price.',
-      'Up to 125% of the typical price.'
-    ]
+           'Up to Rs 1,500 on one purchase.',
+      'Up to Rs 3,000 on one purchase.',
+      'Up to Rs 4,500 on one purchase.',
+      'Up to Rs 6,000 on one purchase.',
+      'Up to Rs 7,500 on one purchase.'    ]
   },
   {
     key: 'review',
@@ -324,6 +338,7 @@ const K_TOP    = 3;      // misaligned agent: highest-commission item among the 
 const N_ITEMS  = 8;      // products per round
 const N_ROUNDS = 10;
 const VIEW_MS  = 10000;  // milliseconds locked before choosing yourself
+  const PRICE_SCALE = 50;  // turns the base price units into rupees
 
 const brands = ['Aurel','Brixa','Calden','Dovan','Elmar','Fenix','Garo','Helio','Ivor','Jarel','Kovin','Lumo','Marek','Norin','Orvia','Pelto','Quill','Ravon','Sorel','Tavin','Ulmar','Vexa','Wendo','Xaro'];
 
@@ -335,6 +350,7 @@ function makeRound(r) {
     const sound = randInt(4, 9), battery = randInt(4, 9);
     let price = Math.round((30 + 7 * (sound + battery) + randInt(-25, 25)) / 5) * 5;
     if (price < 30) { price = 30; }
+        price = price * PRICE_SCALE;
     const value = ((sound + battery) / 2) / price * 100;
     return { name: n + ' Headphones', sound: sound, battery: battery, price: price,
              value: value, commission: 0.12 * price };
@@ -403,7 +419,7 @@ rounds.forEach(function (rd) {
       stimulus: '<h3>Round ' + rd.round + ' of ' + N_ROUNDS + '</h3>' +
                 '<p>Choose the best-value headphones. The buttons unlock after ' + (VIEW_MS / 1000) + ' seconds.</p>',
       choices: rd.items.map(function (i) {
-        return '<b>' + i.name + '</b><br>Sound: ' + i.sound + '/10<br>Battery: ' + i.battery + '/10<br>Price: $' + i.price;
+        return '<b>' + i.name + '</b><br>Sound: ' + i.sound + '/10<br>Battery: ' + i.battery + '/10<br>'Price: Rs ' + i.price.toLocaleString('en-US');
       }),
       enable_button_after: VIEW_MS,
       button_layout: 'grid',
