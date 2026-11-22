@@ -24,8 +24,8 @@
 // =====================================================================
 // SETTINGS YOU MUST EDIT (copy both values from your Google Apps Script setup)
 // =====================================================================
-const SAVE_URL = 'https://script.google.com/macros/s/AKfycbypVmcQ6zoZL_msQAXij-ZZJg_Pl63yASrSJEVa8sY8pD_j7aKPTNc-VXdFlP6Bm83moQ/exec'; 
-const SECRET   = 'blue-kettle-186';   
+const SAVE_URL = 'https://script.google.com/macros/s/AKfycbypVmcQ6zoZL_msQAXij-ZZJg_Pl63yASrSJEVa8sY8pD_j7aKPTNc-VXdFlP6Bm83moQ/exec';   // must end in /exec
+const SECRET   = 'blue-kettle-186';   // must match the Google script
 const IS_TEST  = new URLSearchParams(window.location.search).has('test');
 
 // Do not change this list after real data collection starts
@@ -93,7 +93,7 @@ async function finishUp() {
     box('<p>Thank you. Your answers were saved. You may close this page.</p>');
   } else {
     box('<p>Sorry, we could not save your answers automatically.</p>' +
-        '<p>Please click the button below to download a file, and email it to [sibtain186@gmail.com].</p>' +
+        '<p>Please click the button below to download a file, and email it to [researcher email address].</p>' +
         '<p><button id="dl">Download my answers</button></p>');
     document.getElementById('dl').onclick = function () {
       const blob = new Blob([JSON.stringify(rows)], { type: 'application/json' });
@@ -142,13 +142,13 @@ const consent = {
   <h2>Participant Information &amp; Informed Consent</h2>
 
   <p><strong>Study title:</strong> Decision-Making with Automated Shopping Assistants</p>
-  <p><strong>Principal investigator:</strong> [Dr. Syed Sibtain Ali Shah Kazmi, Department of Management Sciences, Abbottabad University of Science & Technology, Pakistan]</p>
+  <p><strong>Principal investigator:</strong> [Your name, department, institution]</p>
 
   <p><strong>Purpose and procedure:</strong> You are invited to take part in a single-session academic study on how people decide how much an automated shopping assistant may do for them. You will read a brief description of a digital shopping assistant, answer a set of questions, and complete a simulated product-selection task using made-up products. The session takes approximately [20 to 25] minutes. Some details about the study are withheld until the end, because explaining them now could change your responses. You will receive a full explanation on the final screen.</p>
 
   <p><strong>Voluntary participation and academic credit:</strong> Your participation is completely voluntary. You may stop at any time by closing your browser, without penalty. Nothing is saved unless you reach the end of the task. If you are participating for course credit, credit is granted independently of your task decisions or performance, and non-participation carries no academic penalty.</p>
 
-  <p><strong>Risks, benefits and stakes:</strong> This study involves minimal risk. The shopping tasks are simulated and involve no real purchases or personal financial loss. You will see a score for your choices; it is part of a made-up task and says nothing about your ability. </p>
+  <p><strong>Risks, benefits and stakes:</strong> This study involves minimal risk. The shopping tasks are simulated and involve no real purchases or personal financial loss. You will see a score for your choices; it is part of a made-up task and says nothing about your ability. [Optional, only if approved: One randomly selected round will determine your entry into a prize draw / bonus credit allocation. Delete this sentence if not used.]</p>
 
   <p><strong>Confidentiality and data protection:</strong> We do not ask for your name, email address, or phone number. Your responses are recorded under a random participant code and stored in a password-protected online spreadsheet (Google Sheets) that only the research team can open. The servers may be located outside Pakistan, and the companies hosting this page and the spreadsheet may keep technical logs under their own policies; the research team does not receive them. No personally identifying information will appear in any publication or shared dataset.</p>
 
@@ -584,9 +584,9 @@ function makeRatingTrials(items, lead) {
 // Safeguards: adapted from the structural assurance items in McKnight, Choudhury & Kacmar (2002)
 // Recourse: two new items written for this study (not validated)
 const recourseItems = [
-  { scale: 'safeguards',   id: 'sag1', text: 'Online shopping in Pakistan has enough safeguards for me to feel comfortable buying things online.' },
-  { scale: 'safeguards',   id: 'sag2', text: 'I feel assured that laws and institutions in Pakistan adequately protect me from problems when I shop online.' },
-  { scale: 'safeguards',   id: 'sag3', text: 'In general, online shopping in Pakistan is now a safe environment for buying things.' },
+  { scale: 'safeguards',  id: 'sag1', text: 'Online shopping in Pakistan has enough safeguards for me to feel comfortable buying things online.' },
+  { scale: 'safeguards',  id: 'sag2', text: 'I feel assured that laws and institutions in Pakistan adequately protect me from problems when I shop online.' },
+  { scale: 'safeguards',  id: 'sag3', text: 'In general, online shopping in Pakistan is now a safe environment for buying things.' },
   { scale: 'recourse_new', id: 'rcn1', text: 'If a purchase I made online went wrong, I am confident I could get a refund or replacement.' },
   { scale: 'recourse_new', id: 'rcn2', text: 'If I had a dispute with an online seller, I believe I could get it resolved fairly.' }
 ];
