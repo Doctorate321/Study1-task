@@ -565,16 +565,69 @@ const endScreen = {
 };
 
 // =====================================================================
+// PART 8: PERCEIVED SAFEGUARDS AND RECOURSE (before the agent description)
+//         AND PERCEIVED BETRAYAL (after the rounds)
+// =====================================================================
+function makeRatingTrials(items, lead) {
+  return jsPsych.randomization.shuffle(items).map(function (item) {
+    return {
+      type: jsPsychHtmlButtonResponse,
+      stimulus: '<p>' + lead + '</p><p><b>' + item.text + '</b></p>' +
+                '<p><small>1 = Strongly disagree &nbsp;&nbsp;&nbsp; 7 = Strongly agree</small></p>',
+      choices: ['1', '2', '3', '4', '5', '6', '7'],
+      data: { screen: 'scale_item', scale: item.scale, item_id: item.id },
+      on_finish: function (d) { d.rating = d.response + 1; }
+    };
+  });
+}
+
+// Safeguards: adapted from the structural assurance items in McKnight, Choudhury & Kacmar (2002)
+// Recourse: two new items written for this study (not validated)
+const recourseItems = [
+  { scale: 'safeguards',   id: 'sag1', text: 'Online shopping in Pakistan has enough safeguards for me to feel comfortable buying things online.' },
+  { scale: 'safeguards',   id: 'sag2', text: 'I feel assured that laws and institutions in Pakistan adequately protect me from problems when I shop online.' },
+  { scale: 'safeguards',   id: 'sag3', text: 'In general, online shopping in Pakistan is now a safe environment for buying things.' },
+  { scale: 'recourse_new', id: 'rcn1', text: 'If a purchase I made online went wrong, I am confident I could get a refund or replacement.' },
+  { scale: 'recourse_new', id: 'rcn2', text: 'If I had a dispute with an online seller, I believe I could get it resolved fairly.' }
+];
+
+const recourseIntro = {
+  type: jsPsychHtmlButtonResponse,
+  stimulus: '<h3>First, a few questions about shopping online</h3>' +
+    '<p>For each statement, choose the number that fits best. 1 = Strongly disagree, 7 = Strongly agree.</p>',
+  choices: ['Continue'],
+  data: { screen: 'recourse_intro' }
+};
+const recourseTrials = makeRatingTrials(recourseItems, 'Think about shopping online in Pakistan in general.');
+
+const payTrial = makeChoice('online_payment', 'When you shop online, how do you usually pay?',
+  ['Cash on delivery', 'Debit or credit card', 'Mobile wallet or bank transfer', 'I rarely shop online']);
+
+// Betrayal: adapted from the perceived betrayal items in Gregoire & Fisher (2008), rewritten for a hypothetical agent
+const betrayalItems = [
+  { scale: 'betrayal', id: 'bet1', text: 'If I let ShopMate choose for me, I would feel cheated.' },
+  { scale: 'betrayal', id: 'bet2', text: 'If I let ShopMate choose for me, I would feel betrayed.' },
+  { scale: 'betrayal', id: 'bet3', text: 'ShopMate would not be honest with me about which products are best for me.' },
+  { scale: 'betrayal', id: 'bet4', text: 'ShopMate intends to take advantage of me.' },
+  { scale: 'betrayal', id: 'bet5', text: 'ShopMate would try to exploit me.' }
+];
+const betrayalTrials = makeRatingTrials(betrayalItems, 'Think about ShopMate, the assistant you read about.');
+
+// =====================================================================
 // RUN EVERYTHING IN ORDER
 // =====================================================================
 jsPsych.run(
-  [consent, profileCard, check, ladderIntro]
+  [consent, recourseIntro]
+    .concat(recourseTrials)
+    .concat([payTrial, profileCard, check, ladderIntro])
     .concat(ladderTrials)
     .concat([scaleIntro])
     .concat(scaleTrials)
     .concat([roundsIntro])
     .concat(roundTrials)
-    .concat([feedback, manipCheck, perceivedAlign, suspicion])
+    .concat([feedback])
+    .concat(betrayalTrials)
+    .concat([manipCheck, perceivedAlign, suspicion])
     .concat(bgTrials)
     .concat([debrief, endScreen])
 );
